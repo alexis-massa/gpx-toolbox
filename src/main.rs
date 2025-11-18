@@ -59,11 +59,7 @@ struct GuiApp {
 }
 
 impl GuiApp {
-    fn new(
-        files: Vec<PathBuf>,
-        folder: PathBuf,
-        _cc: &eframe::CreationContext<'_>,
-    ) -> Self {
+    fn new(files: Vec<PathBuf>, folder: PathBuf, _cc: &eframe::CreationContext<'_>) -> Self {
         Self {
             files,
             folder,
@@ -75,23 +71,30 @@ impl GuiApp {
 impl eframe::App for GuiApp {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.heading("GPX Toolbox");
+            ui.vertical_centered(|ui| {
+                ui.label(egui::RichText::new("GPX Toolbox").heading().underline())
+            });
 
-            ui.label(format!("Files in {}", &self.folder.display()));
-            for (i, file) in self.files.iter().enumerate() {
-                let selected = self.selected_index == Some(i);
-                let file_name = file.display().to_string();
+            ui.label(egui::RichText::new(format!("Files in {}", &self.folder.display())).strong());
 
-                if ui
-                    .add(Button::selectable(selected, file_name).frame(selected))
-                    .clicked()
-                {
-                    if selected {
-                        self.selected_index = None
-                    } else {
-                        self.selected_index = Some(i)
-                    }
-                };
+            if self.files.is_empty() {
+                ui.label("No GPX files found.");
+            } else {
+                for (i, file) in self.files.iter().enumerate() {
+                    let selected = self.selected_index == Some(i);
+                    let file_name = file.display().to_string();
+
+                    if ui
+                        .add(Button::selectable(selected, file_name).frame(selected))
+                        .clicked()
+                    {
+                        if selected {
+                            self.selected_index = None
+                        } else {
+                            self.selected_index = Some(i)
+                        }
+                    };
+                }
             }
         });
     }
