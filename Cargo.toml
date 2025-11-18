@@ -5,4 +5,5 @@ edition = "2024"
 
 [dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
+eframe = "0.32.3"
 walkdir = "2.5.0"

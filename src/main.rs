@@ -1,4 +1,5 @@
-use std::{error::Error, path::PathBuf};
+use eframe::egui;
+use std::path::PathBuf;
 use walkdir::WalkDir;
 
 use clap::Parser;
@@ -11,15 +12,54 @@ struct Args {
     folder: PathBuf,
 }
 
-fn main() -> Result<(), Box<dyn Error>> {
+fn main() -> Result<(), eframe::Error> {
     let args = Args::parse();
-    let file_count: usize = WalkDir::new(&args.folder)
+
+    let files: Vec<walkdir::DirEntry> = WalkDir::new(&args.folder)
         .into_iter()
-        .collect::<Vec<Result<walkdir::DirEntry, walkdir::Error>>>()
-        .into_iter()
-        .filter(|dir| dir.is_ok())
-        .collect::<Vec<Result<walkdir::DirEntry, walkdir::Error>>>()
-        .len();
-    println!("{} files in {}!", file_count, args.folder.display());
-    Ok(())
+        .filter_map(Result::ok)
+        .collect();
+    let file_count: usize = files.len();
+    let gpx_files: Vec<&walkdir::DirEntry> = files
+        .iter()
+        .filter(|&e| {
+            e.path()
+                .extension()
+                .and_then(|x| x.to_str())
+                .map(|s| s.eq_ignore_ascii_case("gpx"))
+                .unwrap_or(false)
+        })
+        .collect();
+
+    println!(
+        "In '{}' there are {} files, including {} GPX.",
+        args.folder.display(),
+        file_count,
+        gpx_files.len(),
+    );
+
+    let native_options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "GPX Toolbox",
+        native_options,
+        Box::new(|cc| Ok(Box::new(GuiApp::new(cc)))),
+    )
+    // Ok(())
+}
+
+#[derive(Default)]
+struct GuiApp {}
+
+impl GuiApp {
+    fn new(_cc: &eframe::CreationContext<'_>) -> Self {
+        Self::default()
+    }
+}
+
+impl eframe::App for GuiApp {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            ui.heading("GPX Toolbox header");
+        });
+    }
 }
