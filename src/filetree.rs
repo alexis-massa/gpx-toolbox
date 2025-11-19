@@ -1,20 +1,26 @@
 use std::path::{Path, PathBuf};
 
 pub enum Node {
-    Folder { name: String, children: Vec<Node> },
-    File { name: String, path: PathBuf },
+    Folder {
+        name: String,
+        children: Vec<Node>,
+        expanded: bool,
+    },
+    File {
+        name: String,
+        path: PathBuf,
+    },
 }
 
 impl Node {
-    /// Node::Folder constructor
     pub fn new_folder(name: impl Into<String>) -> Self {
         Node::Folder {
             name: name.into(),
             children: Vec::new(),
+            expanded: false,
         }
     }
 
-    /// Node::File constructor
     pub fn new_file(name: impl Into<String>, path: PathBuf) -> Self {
         Node::File {
             name: name.into(),
@@ -22,12 +28,24 @@ impl Node {
         }
     }
 
-    /// is Node a Folder
+    pub fn name(&self) -> &str {
+        match self {
+            Node::Folder { name, .. } => name,
+            Node::File { name, .. } => name,
+        }
+    }
+
     pub fn is_folder(&self) -> bool {
         matches!(self, Node::Folder { .. })
     }
 
-    /// Returns mutable reference to a folder, or None if file
+    pub fn children(&self) -> Option<&Vec<Node>> {
+        match self {
+            Node::Folder { children, .. } => Some(children),
+            Node::File { .. } => None,
+        }
+    }
+
     pub fn children_mut(&mut self) -> Option<&mut Vec<Node>> {
         match self {
             Node::Folder { children, .. } => Some(children),
@@ -41,62 +59,59 @@ pub struct FileTree {
 }
 
 impl FileTree {
-    /// Creates a FileTree from a flat path vec
-    pub fn from_file_list(root_path: &Path, files: Vec<PathBuf>) -> Self {
-        let folder_name = root_path
+    /// Build tree from a flat list of relative file paths.
+    /// Assumes last component is always the file.
+    pub fn from_file_list(root_path: &Path, files: &Vec<PathBuf>) -> Self {
+        let root_name = root_path
             .file_name()
             .map(|s| s.to_string_lossy().to_string())
-            .unwrap_or_else(|| String::from("root_path"));
+            .unwrap_or_else(|| String::from("root"));
 
-        // A mutable empty tree
         let mut tree = FileTree {
-            root: Node::new_folder(folder_name),
+            root: Node::new_folder(root_name),
         };
 
-        // For each path, add a node (folder or file)
-        for file_path in files {
-            if let Ok(relative) = file_path.strip_prefix(root_path) {
-                tree.insert_file(relative, &file_path);
-            }
+        for relative_path in files {
+            tree.insert_file(relative_path);
         }
 
         tree
     }
 
-    /// Add childrens to the tree
-    pub fn insert_file(&mut self, relative_path: &Path, full_path: &Path) {
+    /// Insert a file given a relative path (all parent components are folders)
+    fn insert_file(&mut self, relative_path: &Path) {
         let mut current = &mut self.root;
         let components: Vec<_> = relative_path.components().collect();
-        let last_index: usize = components.len();
 
         for (i, comp) in components.iter().enumerate() {
             let name = comp.as_os_str().to_string_lossy().to_string();
+            let is_last = i == components.len() - 1;
 
-            if i == last_index {
-                // last component can only be a file
+            if is_last {
+                // Last component → File
                 if let Some(children) = current.children_mut() {
-                    children.push(Node::new_file(name, full_path.to_path_buf()));
+                    children.push(Node::new_file(&name, relative_path.to_path_buf()));
                 }
             } else {
-                let folder_idx = current
-                    .children_mut()
-                    .unwrap()
-                    .iter()
-                    .position(|n| match n {
-                        Node::Folder { name: nname, .. } => nname == &name,
-                        _ => false,
-                    });
-
-                current = if let Some(idx) = folder_idx {
-                    // folder exists, descend into it
-                    current.children_mut().unwrap().get_mut(idx).unwrap()
+                // Intermediate component → Folder
+                let children = current.children_mut().unwrap();
+                if let Some(idx) = children.iter().position(|n| match n {
+                    Node::Folder { name: nname, .. } => nname == &name,
+                    _ => false,
+                }) {
+                    current = children.get_mut(idx).unwrap();
                 } else {
-                    // folder doesn't exist, create and descend
-                    let children = current.children_mut().unwrap();
                     children.push(Node::new_folder(&name));
-                    children.last_mut().unwrap()
-                };
+                    current = children.last_mut().unwrap();
+                }
             }
+        }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        match &self.root {
+            Node::Folder { children, .. } => children.is_empty(),
+            Node::File { .. } => false,
         }
     }
 }

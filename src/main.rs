@@ -8,7 +8,7 @@ use walkdir::WalkDir;
 use clap::Parser;
 
 use crate::gui::GuiApp;
-use crate::filetree::Node;
+use crate::filetree::{FileTree, Node};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -41,7 +41,13 @@ fn main() -> Result<(), eframe::Error> {
                 .map(|rel| rel.to_path_buf())
         })
         .collect();
+    
     let file_count: usize = files.len();
+    let file_tree = FileTree::from_file_list(&args.folder, &files);
+    println!("{}", file_tree.is_empty());
+
+    println!("{}", file_tree.root.name());
+
     println!(
         "In '{}' there are {} files, including {} GPX.",
         args.folder.display(),
@@ -56,7 +62,7 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "GPX Toolbox",
         native_options,
-        Box::new(|cc| Ok(Box::new(GuiApp::new(files, args.folder, cc)))),
+        Box::new(|cc| Ok(Box::new(GuiApp::new(file_tree, args.folder, cc)))),
     )
     // Ok(())
 }
