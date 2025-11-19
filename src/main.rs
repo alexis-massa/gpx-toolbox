@@ -1,8 +1,14 @@
-use eframe::egui::{self, Button};
+mod gui;
+mod filetree;
+
 use std::path::PathBuf;
+use eframe::egui;
 use walkdir::WalkDir;
 
 use clap::Parser;
+
+use crate::gui::GuiApp;
+use crate::filetree::Node;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -43,59 +49,14 @@ fn main() -> Result<(), eframe::Error> {
         files.len(),
     );
 
-    let native_options = eframe::NativeOptions::default();
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_maximized(true),
+        ..Default::default()
+    };
     eframe::run_native(
         "GPX Toolbox",
         native_options,
         Box::new(|cc| Ok(Box::new(GuiApp::new(files, args.folder, cc)))),
     )
     // Ok(())
-}
-
-struct GuiApp {
-    files: Vec<PathBuf>,
-    folder: PathBuf,
-    selected_index: Option<usize>,
-}
-
-impl GuiApp {
-    fn new(files: Vec<PathBuf>, folder: PathBuf, _cc: &eframe::CreationContext<'_>) -> Self {
-        Self {
-            files,
-            folder,
-            selected_index: None,
-        }
-    }
-}
-
-impl eframe::App for GuiApp {
-    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new("GPX Toolbox").heading().underline())
-            });
-
-            ui.label(egui::RichText::new(format!("Files in {}", &self.folder.display())).strong());
-
-            if self.files.is_empty() {
-                ui.label("No GPX files found.");
-            } else {
-                for (i, file) in self.files.iter().enumerate() {
-                    let selected = self.selected_index == Some(i);
-                    let file_name = file.display().to_string();
-
-                    if ui
-                        .add(Button::selectable(selected, file_name).frame(selected))
-                        .clicked()
-                    {
-                        if selected {
-                            self.selected_index = None
-                        } else {
-                            self.selected_index = Some(i)
-                        }
-                    };
-                }
-            }
-        });
-    }
 }
