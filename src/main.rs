@@ -1,14 +1,14 @@
-mod gui;
 mod filetree;
+mod gui;
 
-use std::path::PathBuf;
 use eframe::egui;
+use std::path::PathBuf;
 use walkdir::WalkDir;
 
 use clap::Parser;
 
+use crate::filetree::{FileTree};
 use crate::gui::GuiApp;
-use crate::filetree::{FileTree, Node};
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -21,7 +21,7 @@ struct Args {
 fn main() -> Result<(), eframe::Error> {
     let args = Args::parse();
 
-    let files: Vec<PathBuf> = WalkDir::new(&args.folder)
+    let mut files: Vec<PathBuf> = WalkDir::new(&args.folder)
         .into_iter()
         .filter_map(Result::ok)
         .filter_map(|e| {
@@ -41,7 +41,8 @@ fn main() -> Result<(), eframe::Error> {
                 .map(|rel| rel.to_path_buf())
         })
         .collect();
-    
+    files.sort_by_key(|p| p.to_string_lossy().to_string());
+
     let file_count: usize = files.len();
     let file_tree = FileTree::from_file_list(&args.folder, &files);
     println!("{}", file_tree.is_empty());

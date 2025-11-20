@@ -4,11 +4,11 @@ pub enum Node {
     Folder {
         name: String,
         children: Vec<Node>,
-        expanded: bool,
     },
     File {
         name: String,
         path: PathBuf,
+        selected: bool
     },
 }
 
@@ -17,7 +17,6 @@ impl Node {
         Node::Folder {
             name: name.into(),
             children: Vec::new(),
-            expanded: false,
         }
     }
 
@@ -25,6 +24,7 @@ impl Node {
         Node::File {
             name: name.into(),
             path,
+            selected: false
         }
     }
 
@@ -35,16 +35,6 @@ impl Node {
         }
     }
 
-    pub fn is_folder(&self) -> bool {
-        matches!(self, Node::Folder { .. })
-    }
-
-    pub fn children(&self) -> Option<&Vec<Node>> {
-        match self {
-            Node::Folder { children, .. } => Some(children),
-            Node::File { .. } => None,
-        }
-    }
 
     pub fn children_mut(&mut self) -> Option<&mut Vec<Node>> {
         match self {
