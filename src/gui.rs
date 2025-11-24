@@ -1,18 +1,42 @@
 use crate::{
-    action::Action,
+    action::{Action, Job, JobResult},
     filetree::{FileTree, Node},
 };
 use eframe::egui::{self, Button};
-use std::path::PathBuf;
+use std::{
+    path::PathBuf,
+    sync::mpsc::{Receiver, Sender, channel},
+};
 
 pub struct GuiApp {
     file_tree: FileTree,
     folder: PathBuf,
+    tot_distance: u32,
+    sender: Sender<Job>,
+    receiver: Receiver<JobResult>,
 }
 
 impl GuiApp {
     pub fn new(file_tree: FileTree, folder: PathBuf, _cc: &eframe::CreationContext<'_>) -> Self {
-        Self { file_tree, folder }
+        let (send_tx, send_rx) = channel();
+        let (receive_tx, receive_rx) = channel();
+        let thread = std::thread::spawn(move || {
+            while let Ok(message) = send_rx.recv() {
+                match message {
+                    Job::ComputeDistance => {
+                        println!("Je fais du tricot.");
+                        let _ = receive_tx.send(JobResult::TotDistance(42));
+                    }
+                }
+            }
+        });
+        Self {
+            file_tree,
+            folder,
+            tot_distance: 0,
+            sender: send_tx,
+            receiver: receive_rx,
+        }
     }
 
     /// Public entry point for rendering the tree
@@ -60,6 +84,16 @@ impl eframe::App for GuiApp {
                 ui.label(egui::RichText::new("GPX Toolbox").heading().underline())
             });
         });
+
+        while let Ok(message) = self.receiver.try_recv() {
+            match message {
+                JobResult::TotDistance(tot_distance) => {
+                    self.tot_distance = tot_distance;
+                    println!("J'ai tricotté {} km", tot_distance);
+                }
+            }
+        }
+
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([true, false])
@@ -74,7 +108,8 @@ impl eframe::App for GuiApp {
                         if let Some(action) = self.render_tree(ui) {
                             match action {
                                 Action::ComputeDistance => {
-                                    println!("Compute !")
+                                    println!("Start computing !");
+                                    let _ = self.sender.send(Job::ComputeDistance);
                                 }
                             }
                         }
@@ -84,7 +119,7 @@ impl eframe::App for GuiApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new("Main zone 2").heading().underline())
+                ui.label(egui::RichText::new(self.tot_distance.to_string()).heading().underline())
             });
         });
     }
