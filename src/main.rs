@@ -1,5 +1,6 @@
 mod filetree;
 mod gui;
+mod action;
 
 use eframe::egui;
 use std::path::PathBuf;
@@ -45,15 +46,11 @@ fn main() -> Result<(), eframe::Error> {
 
     let file_count: usize = files.len();
     let file_tree = FileTree::from_file_list(&args.folder, &files);
-    println!("{}", file_tree.is_empty());
-
-    println!("{}", file_tree.root.name());
 
     println!(
-        "In '{}' there are {} files, including {} GPX.",
-        args.folder.display(),
+        "There are {} GPX in '{}' .",
         file_count,
-        files.len(),
+        args.folder.display(),
     );
 
     let native_options = eframe::NativeOptions {

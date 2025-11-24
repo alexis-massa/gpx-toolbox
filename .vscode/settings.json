@@ -1,3 +1,7 @@
 {
-    "editor.hover.delay": 2000
+    "editor.hover.delay": 2000,
+    "cSpell.words": [
+        "eframe",
+        "egui"
+    ]
 }

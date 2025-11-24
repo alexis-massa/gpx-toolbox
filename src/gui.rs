@@ -1,4 +1,7 @@
-use crate::filetree::{FileTree, Node};
+use crate::{
+    action::Action,
+    filetree::{FileTree, Node},
+};
 use eframe::egui::{self, Button};
 use std::path::PathBuf;
 
@@ -9,37 +12,30 @@ pub struct GuiApp {
 
 impl GuiApp {
     pub fn new(file_tree: FileTree, folder: PathBuf, _cc: &eframe::CreationContext<'_>) -> Self {
-        Self {
-            file_tree,
-            folder,
-        }
+        Self { file_tree, folder }
     }
 
     /// Public entry point for rendering the tree
-    fn render_tree(&mut self, ui: &mut egui::Ui) {
+    fn render_tree(&mut self, ui: &mut egui::Ui) -> Option<Action> {
         if let Some(children) = self.file_tree.root.children_mut() {
-            let mut index_counter = 0;
             for node in children {
-                Self::render_node_helper(ui, node, 0, &mut index_counter);
+                if let Some(action) = Self::render_node_helper(ui, node, 0) {
+                    return Some(action);
+                }
             }
         }
+        None
     }
 
     /// Helper function: recursively renders nodes without borrowing self
-    fn render_node_helper(
-        ui: &mut egui::Ui,
-        node: &mut Node,
-        depth: usize,
-        current_index: &mut usize,
-    ) {
-        let indent = depth as f32 * 10.0;
-        ui.add_space(indent);
+    fn render_node_helper(ui: &mut egui::Ui, node: &mut Node, depth: usize) -> Option<Action> {
+        ui.add_space(10.0);
 
         match node {
             Node::Folder { name, children, .. } => {
                 egui::collapsing_header::CollapsingHeader::new(name.as_str()).show(ui, |ui| {
                     for child in children {
-                        Self::render_node_helper(ui, child, depth + 1, current_index);
+                        Self::render_node_helper(ui, child, depth + 1);
                     }
                 });
             }
@@ -48,12 +44,12 @@ impl GuiApp {
                     .add(Button::selectable(*selected, name.as_str()).frame(*selected))
                     .clicked()
                 {
-                    *selected = !*selected
+                    *selected = !*selected;
+                    return Some(Action::ComputeDistance);
                 }
-
-                *current_index += 1;
             }
         }
+        None
     }
 }
 
@@ -75,7 +71,13 @@ impl eframe::App for GuiApp {
                     if self.file_tree.is_empty() {
                         ui.label("No GPX files found.");
                     } else {
-                        self.render_tree(ui);
+                        if let Some(action) = self.render_tree(ui) {
+                            match action {
+                                Action::ComputeDistance => {
+                                    println!("Compute !")
+                                }
+                            }
+                        }
                     }
                 });
         });
