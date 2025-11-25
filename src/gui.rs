@@ -43,7 +43,7 @@ impl GuiApp {
     fn render_tree(&mut self, ui: &mut egui::Ui) -> Option<Action> {
         if let Some(children) = self.file_tree.root.children_mut() {
             for node in children {
-                if let Some(action) = Self::render_node_helper(ui, node, 0) {
+                if let Some(action) = Self::render_node_helper(ui, node) {
                     return Some(action);
                 }
             }
@@ -52,16 +52,21 @@ impl GuiApp {
     }
 
     /// Helper function: recursively renders nodes without borrowing self
-    fn render_node_helper(ui: &mut egui::Ui, node: &mut Node, depth: usize) -> Option<Action> {
+    fn render_node_helper(ui: &mut egui::Ui, node: &mut Node) -> Option<Action> {
         ui.add_space(10.0);
 
         match node {
             Node::Folder { name, children, .. } => {
-                egui::collapsing_header::CollapsingHeader::new(name.as_str()).show(ui, |ui| {
-                    for child in children {
-                        Self::render_node_helper(ui, child, depth + 1);
+                let mut action: Option<Action> = None;
+                egui::CollapsingHeader::new(name.as_str()).show(ui, |ui| {
+                    for child in children.iter_mut() {
+                        if let Some(a) = Self::render_node_helper(ui, child) {
+                            action = Some(a);
+                            break;
+                        }
                     }
                 });
+                return action;
             }
             Node::File { name, selected, .. } => {
                 if ui
@@ -98,6 +103,8 @@ impl eframe::App for GuiApp {
             egui::ScrollArea::vertical()
                 .auto_shrink([true, false])
                 .show(ui, |ui| {
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+
                     ui.label(
                         egui::RichText::new(format!("Files in {}", &self.folder.display()))
                             .strong(),
@@ -119,7 +126,11 @@ impl eframe::App for GuiApp {
 
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new(self.tot_distance.to_string()).heading().underline())
+                ui.label(
+                    egui::RichText::new(self.tot_distance.to_string())
+                        .heading()
+                        .underline(),
+                )
             });
         });
     }
