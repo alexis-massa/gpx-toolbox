@@ -2,7 +2,7 @@ use crate::{
     action::{Action, Job, JobResult},
     filetree::{FileTree, Node},
 };
-use eframe::egui::{self, Button};
+use eframe::egui::{self, Button, ahash::HashMap};
 use std::{
     path::PathBuf,
     sync::mpsc::{Receiver, Sender, channel},
@@ -11,6 +11,7 @@ use std::{
 pub struct GuiApp {
     file_tree: FileTree,
     folder: PathBuf,
+    distances: HashMap<PathBuf, u32>,
     tot_distance: u32,
     sender: Sender<Job>,
     receiver: Receiver<JobResult>,
@@ -20,12 +21,19 @@ impl GuiApp {
     pub fn new(file_tree: FileTree, folder: PathBuf, _cc: &eframe::CreationContext<'_>) -> Self {
         let (send_tx, send_rx) = channel();
         let (receive_tx, receive_rx) = channel();
-        let thread = std::thread::spawn(move || {
+        let _thread = std::thread::spawn(move || {
             while let Ok(message) = send_rx.recv() {
                 match message {
-                    Job::ComputeDistance => {
-                        println!("Je fais du tricot.");
-                        let _ = receive_tx.send(JobResult::TotDistance(42));
+                    Job::ComputeDistances => {
+                        // Compute distance for clicked
+                        let clicked_distance = 12;
+
+                        let _ = receive_tx.send(JobResult::Distance(clicked_distance));
+
+                        // Compute total distance
+                        // let tot = file_tree.len() as u32 * 42;
+
+                        // let _ = receive_tx.send(JobResult::TotDistance(tot));
                     }
                 }
             }
@@ -33,6 +41,7 @@ impl GuiApp {
         Self {
             file_tree,
             folder,
+            distances: HashMap::default(),
             tot_distance: 0,
             sender: send_tx,
             receiver: receive_rx,
@@ -74,7 +83,7 @@ impl GuiApp {
                     .clicked()
                 {
                     *selected = !*selected;
-                    return Some(Action::ComputeDistance);
+                    return Some(Action::ComputeDistances);
                 }
             }
         }
@@ -96,6 +105,10 @@ impl eframe::App for GuiApp {
                     self.tot_distance = tot_distance;
                     println!("J'ai tricotté {} km", tot_distance);
                 }
+                JobResult::Distance(distance) => {
+                    self.tot_distance = distance;
+                    println!("J'ai tricotté {} km", distance);
+                }
             }
         }
 
@@ -111,13 +124,11 @@ impl eframe::App for GuiApp {
                     );
                     if self.file_tree.is_empty() {
                         ui.label("No GPX files found.");
-                    } else {
-                        if let Some(action) = self.render_tree(ui) {
-                            match action {
-                                Action::ComputeDistance => {
-                                    println!("Start computing !");
-                                    let _ = self.sender.send(Job::ComputeDistance);
-                                }
+                    } else if let Some(action) = self.render_tree(ui) {
+                        match action {
+                            Action::ComputeDistances => {
+                                println!("Start computing !");
+                                let _ = self.sender.send(Job::ComputeDistances);
                             }
                         }
                     }
@@ -132,6 +143,10 @@ impl eframe::App for GuiApp {
                         .underline(),
                 )
             });
+
+            for file in self.file_tree.selected_files().iter() {
+                ui.label(file.name());
+            }
         });
     }
 }

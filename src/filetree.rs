@@ -1,5 +1,6 @@
 use std::path::{Path, PathBuf};
 
+#[derive(Clone)]
 pub enum Node {
     Folder {
         name: String,
@@ -8,7 +9,7 @@ pub enum Node {
     File {
         name: String,
         path: PathBuf,
-        selected: bool
+        selected: bool,
     },
 }
 
@@ -24,7 +25,7 @@ impl Node {
         Node::File {
             name: name.into(),
             path,
-            selected: false
+            selected: false,
         }
     }
 
@@ -35,11 +36,26 @@ impl Node {
         }
     }
 
-
+    /// Get mutable children
     pub fn children_mut(&mut self) -> Option<&mut Vec<Node>> {
         match self {
             Node::Folder { children, .. } => Some(children),
             Node::File { .. } => None,
+        }
+    }
+
+    pub fn collect_selected(&self, selected_children: &mut Vec<Node>) {
+        match self {
+            Node::File { selected, .. } => {
+                if *selected {
+                    selected_children.push(self.clone());
+                }
+            }
+            Node::Folder { children, .. } => {
+                for child in children {
+                    child.collect_selected(selected_children);
+                }
+            }
         }
     }
 }
@@ -103,5 +119,11 @@ impl FileTree {
             Node::Folder { children, .. } => children.is_empty(),
             Node::File { .. } => false,
         }
+    }
+
+    pub fn selected_files(&self) -> Vec<Node> {
+        let mut selected_files = Vec::new();
+        self.root.collect_selected(&mut selected_files);
+        selected_files
     }
 }

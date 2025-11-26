@@ -1,12 +1,12 @@
 pub enum Action {
-    ComputeDistance,
+    ComputeDistances,
 }
 
 pub enum Job {
-    ComputeDistance,
+    ComputeDistances,
 }
 
-
 pub enum JobResult {
+    Distance(u32),
     TotDistance(u32),
 }
