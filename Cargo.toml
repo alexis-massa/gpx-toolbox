@@ -6,4 +6,7 @@ edition = "2024"
 [dependencies]
 clap = { version = "4.5.51", features = ["derive"] }
 eframe = "0.32.3"
+geo = "0.31.0"
+gpx = "0.10.0"
+thiserror = "2.0.17"
 walkdir = "2.5.0"

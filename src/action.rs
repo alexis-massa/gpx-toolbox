@@ -1,12 +1,16 @@
+use std::path::PathBuf;
+
+
 pub enum Action {
-    ComputeDistances,
+    ComputeDistance(PathBuf),
 }
 
 pub enum Job {
+    ComputeDistance(PathBuf),
     ComputeDistances,
 }
 
 pub enum JobResult {
-    Distance(u32),
+    Distance(PathBuf, u32),
     TotDistance(u32),
 }

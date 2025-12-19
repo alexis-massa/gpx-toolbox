@@ -1,6 +1,7 @@
 mod filetree;
 mod gui;
 mod action;
+mod worker;
 
 use eframe::egui;
 use std::path::PathBuf;

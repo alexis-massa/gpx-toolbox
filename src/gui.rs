@@ -1,9 +1,11 @@
 use crate::{
     action::{Action, Job, JobResult},
     filetree::{FileTree, Node},
+    worker::work,
 };
-use eframe::egui::{self, Button, ahash::HashMap};
+use eframe::egui::{self, Button};
 use std::{
+    collections::HashMap,
     path::PathBuf,
     sync::mpsc::{Receiver, Sender, channel},
 };
@@ -19,21 +21,17 @@ pub struct GuiApp {
 
 impl GuiApp {
     pub fn new(file_tree: FileTree, folder: PathBuf, _cc: &eframe::CreationContext<'_>) -> Self {
+        let folder_thread = folder.clone();
         let (send_tx, send_rx) = channel();
         let (receive_tx, receive_rx) = channel();
         let _thread = std::thread::spawn(move || {
             while let Ok(message) = send_rx.recv() {
-                match message {
-                    Job::ComputeDistances => {
-                        // Compute distance for clicked
-                        let clicked_distance = 12;
-
-                        let _ = receive_tx.send(JobResult::Distance(clicked_distance));
-
-                        // Compute total distance
-                        // let tot = file_tree.len() as u32 * 42;
-
-                        // let _ = receive_tx.send(JobResult::TotDistance(tot));
+                match work(message, &folder_thread) {
+                    Ok(result) => {
+                        let _ = receive_tx.send(result);
+                    }
+                    Err(err) => {
+                        println!("{err}")
                     }
                 }
             }
@@ -83,7 +81,6 @@ impl GuiApp {
                     .clicked()
                 {
                     *selected = !*selected;
-                    return Some(Action::ComputeDistances);
                 }
             }
         }
@@ -101,13 +98,17 @@ impl eframe::App for GuiApp {
 
         while let Ok(message) = self.receiver.try_recv() {
             match message {
+                JobResult::Distance(path, distance) => {
+                    self.distances.insert(path.clone(), distance);
+                    println!("{} a tricotté {} m", path.display(), distance);
+                    ctx.request_repaint();
+                    // Ask to compute total
+                    let _ = self.sender.send(Job::ComputeDistances);
+                }
                 JobResult::TotDistance(tot_distance) => {
                     self.tot_distance = tot_distance;
-                    println!("J'ai tricotté {} km", tot_distance);
-                }
-                JobResult::Distance(distance) => {
-                    self.tot_distance = distance;
-                    println!("J'ai tricotté {} km", distance);
+                    println!("J'ai tricotté {} m", tot_distance);
+                    ctx.request_repaint();
                 }
             }
         }
@@ -126,9 +127,11 @@ impl eframe::App for GuiApp {
                         ui.label("No GPX files found.");
                     } else if let Some(action) = self.render_tree(ui) {
                         match action {
-                            Action::ComputeDistances => {
-                                println!("Start computing !");
-                                let _ = self.sender.send(Job::ComputeDistances);
+                            Action::ComputeDistance(path) => {
+                                println!("Compute Distance for {}", path.display());
+                                if let Err(error) = self.sender.send(Job::ComputeDistance(path)) {
+                                    eprintln!("Error sending ComputeDistance : {error}")
+                                }
                             }
                         }
                     }
@@ -136,16 +139,24 @@ impl eframe::App for GuiApp {
         });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.vertical_centered(|ui| {
-                ui.label(
-                    egui::RichText::new(self.tot_distance.to_string())
-                        .heading()
-                        .underline(),
-                )
-            });
-
-            for file in self.file_tree.selected_files().iter() {
-                ui.label(file.name());
+            let files = self.file_tree.selected_files();
+            if files.is_empty() {
+                ui.label("No file selected.");
+            } else {
+                ui.label("Selected files:");
+                for file in files {
+                    ui.horizontal(|ui| {
+                        ui.monospace(file.name().to_string());
+                        ui.add_space(8.0);
+                        ui.label(self.distances.get(&file.path()));
+                        ui.add_space(8.0);
+                        if ui.button("Compute distance").clicked()
+                            && let Some(path) = file.path()
+                        {
+                            let _ = self.sender.send(Job::ComputeDistance(path.clone()));
+                        }
+                    });
+                }
             }
         });
     }

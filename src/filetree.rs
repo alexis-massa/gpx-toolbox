@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use gpx::Gpx;
+
 #[derive(Clone)]
 pub enum Node {
     Folder {
@@ -36,6 +38,13 @@ impl Node {
         }
     }
 
+    pub fn path(&self) -> Option<&PathBuf> {
+        match self {
+            Node::File { path, .. } => Some(path),
+            Node::Folder { .. } => None,
+        }
+    }
+
     /// Get mutable children
     pub fn children_mut(&mut self) -> Option<&mut Vec<Node>> {
         match self {
@@ -55,6 +64,29 @@ impl Node {
                 for child in children {
                     child.collect_selected(selected_children);
                 }
+            }
+        }
+    }
+
+    /// Find mutable node by its path
+    pub fn find_file_mut(&mut self, path: &PathBuf) -> Option<&mut Node> {
+        match self {
+            Node::File {
+                path: node_path, ..
+            } => {
+                if node_path == path {
+                    Some(self)
+                } else {
+                    None
+                }
+            }
+            Node::Folder { children, .. } => {
+                for child in children {
+                    if let Some(found) = child.find_file_mut(path) {
+                        return Some(found);
+                    }
+                }
+                None
             }
         }
     }
@@ -121,6 +153,7 @@ impl FileTree {
         }
     }
 
+    /// Get a Vec of the selected nodes
     pub fn selected_files(&self) -> Vec<Node> {
         let mut selected_files = Vec::new();
         self.root.collect_selected(&mut selected_files);
